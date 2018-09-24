@@ -1,0 +1,77 @@
+---
+- name: configure repository
+  yum_repository:
+    name: kubernetes
+    description: kubernetes
+    baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+    enabled: no
+    gpgcheck: yes
+    repo_gpgcheck: yes
+    gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+- name: install prerequisites
+  dnf:
+    name: "{{ packages }}"
+    state: latest
+    enablerepo: kubernetes
+
+- name: remove cni configurations
+  file:
+    path: /etc/cni/net.d/100-crio-bridge.conf
+    state: absent
+  notify:
+  - restart crio
+
+- name: set cni plugins directory for cri-o
+  lineinfile:
+    path: /etc/crio/crio.conf
+    state: present
+    regexp: '^plugin_dir\s*='
+    line: 'plugin_dir = "/opt/cni/bin"'
+  notify:
+  - restart crio
+
+- name: kernel modules
+  copy:
+    src: modules-load.conf
+    dest: /etc/modules-load.d/kubernetes.conf
+  notify:
+  - restart modules-load
+
+- name: flush pending handlers
+  meta:
+    flush_handlers
+
+- name: disable swappiness and pass bridged traffic to iptable's chains
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/kubernetes.conf
+    sysctl_set: yes
+    reload: no
+  with_items:
+    - { name: 'vm.swappiness', value: '0' }
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+
+- name: enable services service
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+  - crio
+  - kubelet
+
+- name: configure cgroup for kubelet
+  copy:
+    src: kubelet
+    dest: /etc/sysconfig/kubelet
+  notify:
+  - restart kubelet
+
+- name: flush pending handlers
+  meta:
+    flush_handlers

@@ -1,0 +1,10 @@
+---
+
+- name: stat kubeadm-flags.env
+  stat:
+    path: /var/lib/kubelet/kubeadm-flags.env
+  register: kubeadm_flags_env
+
+- name: join
+  command: "{{ hostvars[groups['masters'][0]]['kubeadm_join'].stdout }} --cri-socket /var/run/crio/crio.sock"
+  when: not kubeadm_flags_env.stat.exists

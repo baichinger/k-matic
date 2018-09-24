@@ -1,0 +1,17 @@
+---
+- name: restart kubelet
+  systemd:
+    name: kubelet
+    state: restarted
+    daemon_reload: yes
+
+- name: restart crio
+  systemd:
+    name: crio
+    state: restarted
+    daemon_reload: yes
+
+- name: restart modules-load
+  systemd:
+    name: systemd-modules-load
+    state: restarted

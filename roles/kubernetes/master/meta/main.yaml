@@ -1,0 +1,12 @@
+---
+dependencies:
+- role: kubernetes/common
+  vars:
+    packages:
+    - "ipvsadm"
+    - "ebtables"
+    - "ethtool"
+    - "kubectl"
+    - "kubeadm"
+    - "kubelet"
+    - "cri-o"

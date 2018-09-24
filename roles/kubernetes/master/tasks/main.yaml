@@ -1,0 +1,39 @@
+---
+
+- name: stat kubeadm-flags.env
+  stat:
+    path: /var/lib/kubelet/kubeadm-flags.env
+  register: kubeadm_flags_env
+
+- name: determine kubernetes version
+  command: kubeadm version -o short
+  when: not kubeadm_flags_env.stat.exists
+  register: kubeadm_version
+
+- name: initialize
+  command: kubeadm init --cri-socket /var/run/crio/crio.sock --pod-network-cidr=192.168.0.0/16 --kubernetes-version "{{ kubeadm_version.stdout }}"
+  when: not kubeadm_flags_env.stat.exists
+  register: kubeadm_init
+
+#- name: extract kubeadm join command
+#  set_fact:
+#    kubeadm_join: "{{ kubeadm_init.stdout | regex_search('(kubeadm join .*)', '\\1') | first }}"
+#  when: kubeadm_init.changed == true
+
+- name: fetch kubeconfig
+  fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ inventory_hostname }}.kubeconfig"
+    flat: yes
+
+- name: create token
+  command: kubeadm token create --print-join-command
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: kubeadm_join
+
+- name: install pod network calico (rbac)
+  command: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
+
+- name: install pod network calico
+  command: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml

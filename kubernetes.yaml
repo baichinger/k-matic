@@ -1,0 +1,9 @@
+---
+
+- hosts: masters
+  roles:
+  - kubernetes/master
+
+- hosts: nodes
+  roles:
+  - kubernetes/node
